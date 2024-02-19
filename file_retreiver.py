@@ -1,7 +1,7 @@
 from Collection.upload_files import get_connection_string
 from langchain_community.vectorstores import PGVector
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import AutoTokenizer, AutoModelForQuestionAnswering, pipeline
 import time
 
 embedding_model = HuggingFaceEmbeddings()
@@ -12,39 +12,44 @@ db = PGVector(
 )
 
 retriever = db.as_retriever(
-    search_kwargs={"k": 5,"score_threshold": 0.5},
-    search_type="similarity_score_threshold"
+    # search_kwargs={"k": 5,"score_threshold": 0.5},
+    # search_type="similarity_score_threshold"
 )
 
 # import llama2 for context based search from hggingface
 # Load model directly
 
-ckpt = 'distilgpt2'
+ckpt = 'deepset/tinyroberta-squad2'
 tokenizer = AutoTokenizer.from_pretrained(ckpt)
-model = AutoModelForCausalLM.from_pretrained(ckpt)
+model = AutoModelForQuestionAnswering.from_pretrained(ckpt)
 # Use a pipeline as a high-level helper
 
-pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+pipe = pipeline("question-answering", model=model, tokenizer=tokenizer)
 
 instruction = """
-    You are a question answering bot. You will be passed a context for generating response. You will be given context in format:
-    Context : "This is a context"
-    Question : "What is the context?"
+    You are a question answering bot. You will be passed a context for generating response. You will be given context. Answer the question based on the context.
     Be sure to generate the correct response. If context does not contain the answer, you can respond with "I don't know"
 """
 # tracking retreiaval time
 question = input("Enter the question: ")
 start = time.time()
-context = retriever.invoke(question)
+context_list = retriever.invoke(question, k=3)
+context = context_list[0].page_content + context_list[1].page_content + context_list[2].page_content
+# print(context)
+query = f"""{instruction}
+    Question : {question}"""
+
+QA_input = {
+    'question': query,
+    'context': context
+}
+
+response = pipe(QA_input)
+print(response['answer'])
+
 end = time.time()
 print(f"Retrieval time : {end - start} seconds")
 
-query = f"""{instruction}
-    Context : {context[0].page_content + context[1].page_content}
-    Question : {question}"""
-
-response = pipe(question=question)
-print(response)
 # def main():
 #     retriever = db.as_retriever(
 #         search_kwargs={"k": 5,"score_threshold": 0.5},
