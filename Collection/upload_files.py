@@ -3,7 +3,7 @@ import pypdf
 import warnings
 warnings.filterwarnings("ignore")
 from langchain.document_loaders import PyPDFLoader
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 import psycopg2
 from dotenv import load_dotenv
 from langchain_community.vectorstores import PGVector
